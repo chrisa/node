@@ -2538,8 +2538,221 @@ class Verify : public ObjectWrap {
 };
 
 
+void RsaKeypair::Initialize(Handle<Object> target) {
+  HandleScope scope;
+
+  Local<FunctionTemplate> t = FunctionTemplate::New(RsaKeypair::New);
+  t->InstanceTemplate()->SetInternalFieldCount(1);
+  t->SetClassName(String::NewSymbol("RsaKeypair"));
+
+  NODE_SET_PROTOTYPE_METHOD(t, "setPublicKey",
+                            RsaKeypair::SetPublicKey);
+  NODE_SET_PROTOTYPE_METHOD(t, "setPrivateKey",
+                            RsaKeypair::SetPrivateKey);
+  NODE_SET_PROTOTYPE_METHOD(t, "encrypt",
+                            RsaKeypair::Encrypt);
+  NODE_SET_PROTOTYPE_METHOD(t, "decrypt",
+                            RsaKeypair::Decrypt);
+
+  target->Set(String::NewSymbol("RsaKeypair"), t->GetFunction());
+}
+
+Handle<Value> RsaKeypair::New(const Arguments& args) {
+  HandleScope scope;
+  RsaKeypair *p = new RsaKeypair();
+  p->Wrap(args.Holder());
+  p->privateKey = NULL;
+  p->publicKey = NULL;
+  return args.This();
+}
+
+Handle<Value> RsaKeypair::SetPublicKey(const Arguments& args) {
+  HandleScope scope;
+
+  RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
+
+  if (args.Length() != 1 ||
+      !args[0]->IsString()) {
+    return ThrowException(Exception::TypeError(
+          String::New("Bad parameter")));
+  }
+  String::Utf8Value pubKey(args[0]->ToString());
+
+  BIO *bp = NULL;
+  RSA *key = NULL;
+
+  bp = BIO_new(BIO_s_mem());
+  if (!BIO_write(bp, *pubKey, strlen(*pubKey)))
+    return False();
+
+  key = PEM_read_bio_RSA_PUBKEY(bp, NULL, NULL, NULL);
+  if (key == NULL) {
+    return False();
+  }
+
+  kp->publicKey = key;
+  BIO_free(bp);
+
+  return True();
+}
+
+Handle<Value> RsaKeypair::SetPrivateKey(const Arguments& args) {
+  HandleScope scope;
+
+  RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
+
+  if (args.Length() != 2 ||
+      !args[0]->IsString() || !args[1]->IsString()) {
+    return ThrowException(Exception::TypeError(
+          String::New("Bad parameter")));
+  }
+  String::Utf8Value privKey(args[0]->ToString());
+  String::Utf8Value passphrase(args[1]->ToString());
+
+  BIO *bp = NULL;
+  RSA *key;
+
+  bp = BIO_new(BIO_s_mem());
+  if (!BIO_write(bp, *privKey, strlen(*privKey)))
+    return False();
+
+  key = PEM_read_bio_RSAPrivateKey(bp, NULL, 0, *passphrase);
+  if (key == NULL) {
+    return False();
+  }
+
+  kp->privateKey = key;
+  BIO_free(bp);
+
+  return True();
+}
 
 
+Handle<Value> RsaKeypair::Encrypt(const Arguments& args) {
+  HandleScope scope;
+
+  RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
+
+  if (kp->publicKey == NULL) {
+    Local<Value> exception = Exception::TypeError(String::New("Can't encrypt, no public key"));
+    return ThrowException(exception);
+  }
+
+  enum encoding enc = ParseEncoding(args[1]);
+  ssize_t len = DecodeBytes(args[0], enc);
+  
+  if (len < 0) {
+    Local<Value> exception = Exception::TypeError(String::New("Bad argument"));
+    return ThrowException(exception);
+  }
+
+  // check per RSA_public_encrypt(3) when using OAEP
+  if (len >= RSA_size(kp->publicKey) - 41) {
+    Local<Value> exception = Exception::TypeError(String::New("Bad argument (too long for key size)"));
+    return ThrowException(exception);
+  }
+
+  unsigned char* buf = new unsigned char[len];
+  ssize_t written = DecodeWrite((char *)buf, len, args[0], enc);
+  assert(written == len);  
+
+  int out_len = RSA_size(kp->publicKey);
+  unsigned char *out = (unsigned char*)malloc(out_len);
+
+  int r = RSA_public_encrypt(len, buf, out, kp->publicKey, RSA_PKCS1_OAEP_PADDING);
+
+  if (r < 0) {
+    // XXX ERR_error_string
+    Local<Value> exception = Exception::TypeError(String::New("error encrypting"));
+    return ThrowException(exception);
+  }
+
+  Local<Value> outString;
+  if (out_len == 0) {
+    outString = String::New("");
+  }
+  else {
+    if (args.Length() <= 2 || !args[2]->IsString()) {
+      outString = Encode(out, out_len, BINARY);
+    } else {
+      char* out_hexdigest;
+      int out_hex_len;
+      String::Utf8Value encoding(args[2]->ToString());
+      if (strcasecmp(*encoding, "hex") == 0) {
+	hex_encode(out, out_len, &out_hexdigest, &out_hex_len);
+	outString = Encode(out_hexdigest, out_hex_len, BINARY);
+	free(out_hexdigest);
+      }  
+    }
+  }
+  if (out) free(out);
+  return scope.Close(outString);
+}
+
+Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
+  HandleScope scope;
+
+  RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
+
+  if (kp->privateKey == NULL) {
+    Local<Value> exception = Exception::TypeError(String::New("Can't decrypt, no private key"));
+    return ThrowException(exception);
+  }
+
+  ssize_t len = DecodeBytes(args[0], BINARY);
+  unsigned char* buf = new unsigned char[len];
+  ssize_t written = DecodeWrite((char *)buf, len, args[0], BINARY);
+  unsigned char* ciphertext;
+  int ciphertext_len;
+
+  if (args.Length() <= 1 || !args[1]->IsString()) {
+      // Binary - do nothing
+  } else {
+    String::Utf8Value encoding(args[1]->ToString());
+    if (strcasecmp(*encoding, "hex") == 0) {
+      hex_decode((unsigned char*)buf, len, (char **)&ciphertext, &ciphertext_len);
+      free(buf);
+      buf = ciphertext;
+      len = ciphertext_len;
+    } else if (strcasecmp(*encoding, "binary") == 0) {
+      // Binary - do nothing
+    } else {
+      fprintf(stderr, "node-crypto : RsaKeypair.decrypt encoding "
+	      "can be binary or hex\n");
+    }
+  }
+
+  // check per RSA_public_encrypt(3) when using OAEP
+  //if (len > RSA_size(kp->privateKey) - 41) {
+  //  Local<Value> exception = Exception::TypeError(String::New("Bad argument (too long for key size)"));
+  //  return ThrowException(exception);
+  //}
+  
+  int out_len = RSA_size(kp->privateKey);
+  unsigned char *out = (unsigned char*)malloc(out_len);
+  
+  out_len = RSA_private_decrypt(len, buf, out, kp->privateKey, RSA_PKCS1_OAEP_PADDING);
+
+  if (out_len < 0) {
+    // XXX ERR_error_string
+    Local<Value> exception = Exception::TypeError(String::New("error decrypting"));
+    return ThrowException(exception);
+  }
+  
+  Local<Value> outString;
+  if (out_len == 0) {
+    outString = String::New("");
+  } else if (args.Length() <= 2 || !args[2]->IsString()) {
+      outString = Encode(out, out_len, BINARY);
+  } else {
+    enum encoding enc = ParseEncoding(args[2]);
+    outString = Encode(out, out_len, enc);
+  }
+
+  if (out) free(out);
+  free(buf);
+  return scope.Close(outString);
+}
 
 void InitCrypto(Handle<Object> target) {
   HandleScope scope;
@@ -2558,6 +2771,7 @@ void InitCrypto(Handle<Object> target) {
   Hash::Initialize(target);
   Sign::Initialize(target);
   Verify::Initialize(target);
+  RsaKeypair::Initialize(target);
 
   subject_symbol        = NODE_PSYMBOL("subject");
   issuer_symbol        = NODE_PSYMBOL("issuer");

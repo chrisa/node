@@ -70,3 +70,11 @@ var txt = decipher.update(ciph, 'hex', 'utf8');
 txt += decipher.final('utf8');
 assert.equal(txt, plaintext, "encryption and decryption with key and iv");
 
+// Test RSA routines
+var rsaPublic = fs.readFileSync(fixturesDir+"/rsa.public", 'ascii');
+var rsaPrivate = fs.readFileSync(fixturesDir+"/rsa.private", 'ascii');
+var keypair = crypto.createRsaKeypair({ publicKey: rsaPublic, privateKey: rsaPrivate, passphrase: "foobar" });
+
+var ciphertext = keypair.encrypt(plaintext, 'utf8', 'hex');
+var plaintext_again = keypair.decrypt(ciphertext, 'hex', 'utf8');
+assert.equal(plaintext, plaintext_again);

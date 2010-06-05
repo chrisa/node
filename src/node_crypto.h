@@ -11,6 +11,8 @@
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/hmac.h>
+#include <openssl/rsa.h>
+#include <openssl/engine.h>
 
 #define EVP_F_EVP_DECRYPTFINAL 101
 
@@ -76,6 +78,28 @@ class SecureStream : ObjectWrap {
   bool shouldVerify;
 };
 
+class RsaKeypair : ObjectWrap {
+ public:
+  static void Initialize(v8::Handle<v8::Object> target);
+
+ protected:
+  static v8::Handle<v8::Value> New(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SetPrivateKey(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SetPublicKey(const v8::Arguments& args);
+  static v8::Handle<v8::Value> Encrypt(const v8::Arguments& args);
+  static v8::Handle<v8::Value> Decrypt(const v8::Arguments& args);
+
+  RsaKeypair() : ObjectWrap() {
+  }
+
+  ~RsaKeypair() {
+  }
+
+ private:
+  RSA *publicKey;
+  RSA *privateKey;
+};
+  
 void InitCrypto(v8::Handle<v8::Object> target);
 }
 
