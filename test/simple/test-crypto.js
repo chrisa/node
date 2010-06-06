@@ -70,11 +70,22 @@ var txt = decipher.update(ciph, 'hex', 'utf8');
 txt += decipher.final('utf8');
 assert.equal(txt, plaintext, "encryption and decryption with key and iv");
 
-// Test RSA routines
+// Test RSA routines - keypair:
 var rsaPublic = fs.readFileSync(fixturesDir+"/rsa.public", 'ascii');
 var rsaPrivate = fs.readFileSync(fixturesDir+"/rsa.private", 'ascii');
 var keypair = crypto.createRsaKeypair({ publicKey: rsaPublic, privateKey: rsaPrivate, passphrase: "foobar" });
 
+// roundtrip via hex encoding
 var ciphertext = keypair.encrypt(plaintext, 'utf8', 'hex');
 var plaintext_again = keypair.decrypt(ciphertext, 'hex', 'utf8');
+assert.equal(plaintext, plaintext_again);
+
+// roundtrip via binary
+var ciphertext = keypair.encrypt(plaintext, 'utf8', 'binary');
+var plaintext_again = keypair.decrypt(ciphertext, 'binary', 'utf8');
+assert.equal(plaintext, plaintext_again);
+
+// roundtrip via binary, encryption output encoding unspecified
+var ciphertext = keypair.encrypt(plaintext, 'utf8');
+var plaintext_again = keypair.decrypt(ciphertext, 'binary', 'utf8');
 assert.equal(plaintext, plaintext_again);

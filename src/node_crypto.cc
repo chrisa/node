@@ -2634,6 +2634,7 @@ Handle<Value> RsaKeypair::Encrypt(const Arguments& args) {
   RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
 
   if (kp->publicKey == NULL) {
+    // XXX appropriate exception
     Local<Value> exception = Exception::TypeError(String::New("Can't encrypt, no public key"));
     return ThrowException(exception);
   }
@@ -2663,6 +2664,7 @@ Handle<Value> RsaKeypair::Encrypt(const Arguments& args) {
 
   if (r < 0) {
     // XXX ERR_error_string
+    // XXX appropriate exception
     Local<Value> exception = Exception::TypeError(String::New("error encrypting"));
     return ThrowException(exception);
   }
@@ -2682,7 +2684,13 @@ Handle<Value> RsaKeypair::Encrypt(const Arguments& args) {
 	hex_encode(out, out_len, &out_hexdigest, &out_hex_len);
 	outString = Encode(out_hexdigest, out_hex_len, BINARY);
 	free(out_hexdigest);
-      }  
+      } else if (strcasecmp(*encoding, "binary") == 0) {
+        outString = Encode(out, out_len, BINARY);
+      } else {
+	outString = String::New("");
+	fprintf(stderr, "node-crypto : RsaKeypair encrypt encoding "
+		"can be binary or hex\n");
+      }
     }
   }
   if (out) free(out);
@@ -2695,6 +2703,7 @@ Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
   RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
 
   if (kp->privateKey == NULL) {
+    // XXX appropriate exception
     Local<Value> exception = Exception::TypeError(String::New("Can't decrypt, no private key"));
     return ThrowException(exception);
   }
@@ -2722,6 +2731,7 @@ Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
     }
   }
 
+  // XXX is this check unnecessary? is it just len <= keysize?
   // check per RSA_public_encrypt(3) when using OAEP
   //if (len > RSA_size(kp->privateKey) - 41) {
   //  Local<Value> exception = Exception::TypeError(String::New("Bad argument (too long for key size)"));
@@ -2735,6 +2745,7 @@ Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
 
   if (out_len < 0) {
     // XXX ERR_error_string
+    // XXX appropriate exception
     Local<Value> exception = Exception::TypeError(String::New("error decrypting"));
     return ThrowException(exception);
   }
