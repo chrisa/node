@@ -2411,7 +2411,27 @@ Verifies the signed data by using the `public_key` which is a string containing 
 
 Returns true or false depending on the validity of the signature for the data and public key.
 
+### crypto.createRsaKeypair(details)
 
+Creates an RSA keypair object, with `details` being a dictionary with keys:
+
+`publicKey` : a string holding the PEM encoded RSA public key
+
+`privateKey` : a string holding the PEM encoded RSA private key
+
+`passphrase` : optionally, the passphrase for the private key
+
+Omit the passphrase if the private key is unencrypted, or to use the default OpenSSL passphrase prompt.
+
+### keypair.encrypt(plaintext, input_encoding, output_encoding)
+
+Encrypts the given plaintext with the public key of `keypair`. `output_encoding` may be 'hex' or 'binary'. The default if unspecified is 'binary'. `input_encoding` may be one of 'binary', 'utf8' or 'ascii'.
+
+The padding is RSAES-OAEP, and the ciphertext may be no longer than the size of your key in bytes, less 41. 
+
+### keypair.decrypt(ciphertext, input_encoding, output_encoding)
+
+Decrypts the given ciphertext with the private key of `keypair`. `input_encoding` may be 'hex' or 'binary'. `output_encoding` may be one of 'binary', 'utf8' or 'ascii'.
 
 ## DNS
 
