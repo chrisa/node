@@ -2433,6 +2433,10 @@ The padding is RSAES-OAEP, and the ciphertext may be no longer than the size of 
 
 Decrypts the given ciphertext with the private key of `keypair`. `input_encoding` may be 'hex' or 'binary'. `output_encoding` may be one of 'binary', 'utf8' or 'ascii'.
 
+### crypto.randomBytes(count, output_encoding)
+
+Returns cryptographically strong random bytes. `count` specifies the number of bytes required, and `output_encoding` the encoding, either 'binary' or 'hex'. The default if unspecified is 'binary'.
+
 ## DNS
 
 Use `require('dns')` to access this module.
