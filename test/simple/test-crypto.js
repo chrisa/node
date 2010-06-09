@@ -89,3 +89,11 @@ assert.equal(plaintext, plaintext_again);
 var ciphertext = keypair.encrypt(plaintext, 'utf8');
 var plaintext_again = keypair.decrypt(ciphertext, 'binary', 'utf8');
 assert.equal(plaintext, plaintext_again);
+
+// Test random routine
+var random_bytes_unspecified = crypto.randomBytes(64);
+assert.ok(random_bytes_unspecified);
+var random_bytes_binary = crypto.randomBytes(64, 'binary');
+assert.ok(random_bytes_binary);
+var random_bytes_hex = crypto.randomBytes(64, 'hex');
+assert.ok(random_bytes_hex);

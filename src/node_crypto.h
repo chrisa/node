@@ -13,6 +13,7 @@
 #include <openssl/hmac.h>
 #include <openssl/rsa.h>
 #include <openssl/engine.h>
+#include <openssl/rand.h>
 
 #define EVP_F_EVP_DECRYPTFINAL 101
 
@@ -99,7 +100,23 @@ class RsaKeypair : ObjectWrap {
   RSA *publicKey;
   RSA *privateKey;
 };
-  
+
+class Random : ObjectWrap {
+  public:
+  static void Initialize(v8::Handle<v8::Object> target);
+
+ protected:
+  static v8::Handle<v8::Value> New(const v8::Arguments& args);
+  static v8::Handle<v8::Value> RandomBytes(const v8::Arguments& args);
+
+  Random() : ObjectWrap() {
+  }
+
+  ~Random() {
+  }
+
+};
+
 void InitCrypto(v8::Handle<v8::Object> target);
 }
 

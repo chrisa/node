@@ -2754,7 +2754,7 @@ Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
   if (out_len == 0) {
     outString = String::New("");
   } else if (args.Length() <= 2 || !args[2]->IsString()) {
-      outString = Encode(out, out_len, BINARY);
+    outString = Encode(out, out_len, BINARY);
   } else {
     enum encoding enc = ParseEncoding(args[2]);
     outString = Encode(out, out_len, enc);
@@ -2764,6 +2764,74 @@ Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
   free(buf);
   return scope.Close(outString);
 }
+
+void Random::Initialize(Handle<Object> target) {
+  HandleScope scope;
+
+  Local<FunctionTemplate> t = FunctionTemplate::New(Random::New);
+  t->InstanceTemplate()->SetInternalFieldCount(1);
+  t->SetClassName(String::NewSymbol("Random"));
+
+  NODE_SET_PROTOTYPE_METHOD(t, "randomBytes",
+                            Random::RandomBytes);
+
+  target->Set(String::NewSymbol("Random"), t->GetFunction());
+}
+
+Handle<Value> Random::New(const Arguments& args) {
+  HandleScope scope;
+  Random *p = new Random();
+  p->Wrap(args.Holder());
+  return args.This();
+}
+
+Handle<Value> Random::RandomBytes(const Arguments& args) {
+  HandleScope scope;
+  Random *r = ObjectWrap::Unwrap<Random>(args.Holder());
+
+  if (!args[0]->IsNumber()) {
+    return ThrowException(Exception::TypeError(
+          String::New("Bad parameter (random byte length)")));
+  }
+
+  int out_len = args[0]->Int32Value();
+  unsigned char *out = (unsigned char*)malloc(out_len);
+
+  if (RAND_bytes(out, out_len) == 0) {
+    // XXX appropriate exception
+    // ERR_get_error
+    return ThrowException(Exception::TypeError(
+          String::New("error getting random bytes")));
+  }
+
+  Local<Value> outString;
+  if (out_len == 0) {
+    outString = String::New("");
+  }
+  else {
+    if (args.Length() == 1 || !args[1]->IsString()) {
+      outString = Encode(out, out_len, BINARY);
+    } else {
+      char* out_hexdigest;
+      int out_hex_len;
+      String::Utf8Value encoding(args[1]->ToString());
+      if (strcasecmp(*encoding, "hex") == 0) {
+	hex_encode(out, out_len, &out_hexdigest, &out_hex_len);
+	outString = Encode(out_hexdigest, out_hex_len, BINARY);
+	free(out_hexdigest);
+      } else if (strcasecmp(*encoding, "binary") == 0) {
+        outString = Encode(out, out_len, BINARY);
+      } else {
+	outString = String::New("");
+	fprintf(stderr, "node-crypto : randomBytes encoding "
+		"can be binary or hex\n");
+      }
+    }
+  }
+  if (out) free(out);
+  return scope.Close(outString);
+}
+
 
 void InitCrypto(Handle<Object> target) {
   HandleScope scope;
@@ -2783,6 +2851,7 @@ void InitCrypto(Handle<Object> target) {
   Sign::Initialize(target);
   Verify::Initialize(target);
   RsaKeypair::Initialize(target);
+  Random::Initialize(target);
 
   subject_symbol        = NODE_PSYMBOL("subject");
   issuer_symbol        = NODE_PSYMBOL("issuer");
