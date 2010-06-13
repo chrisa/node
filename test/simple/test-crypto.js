@@ -80,6 +80,11 @@ var ciphertext = keypair.encrypt(plaintext, 'utf8', 'hex');
 var plaintext_again = keypair.decrypt(ciphertext, 'hex', 'utf8');
 assert.equal(plaintext, plaintext_again);
 
+// roundtrip via hex encoding
+var ciphertext = keypair.encrypt(plaintext, 'utf8', 'base64');
+var plaintext_again = keypair.decrypt(ciphertext, 'base64', 'utf8');
+assert.equal(plaintext, plaintext_again);
+
 // roundtrip via binary
 var ciphertext = keypair.encrypt(plaintext, 'utf8', 'binary');
 var plaintext_again = keypair.decrypt(ciphertext, 'binary', 'utf8');

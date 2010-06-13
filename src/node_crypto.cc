@@ -2684,12 +2684,16 @@ Handle<Value> RsaKeypair::Encrypt(const Arguments& args) {
 	hex_encode(out, out_len, &out_hexdigest, &out_hex_len);
 	outString = Encode(out_hexdigest, out_hex_len, BINARY);
 	free(out_hexdigest);
+      } else if (strcasecmp(*encoding, "base64") == 0) {
+        base64(out, out_len, &out_hexdigest, &out_hex_len);
+        outString = Encode(out_hexdigest, out_hex_len, BINARY);
+        free(out_hexdigest);
       } else if (strcasecmp(*encoding, "binary") == 0) {
         outString = Encode(out, out_len, BINARY);
       } else {
 	outString = String::New("");
-	fprintf(stderr, "node-crypto : RsaKeypair encrypt encoding "
-		"can be binary or hex\n");
+	fprintf(stderr, "node-crypto : RsaKeypair.encrypt encoding "
+		"can be binary, base64 or hex\n");
       }
     }
   }
@@ -2723,11 +2727,16 @@ Handle<Value> RsaKeypair::Decrypt(const Arguments& args) {
       free(buf);
       buf = ciphertext;
       len = ciphertext_len;
+    } else if (strcasecmp(*encoding, "base64") == 0) {
+      unbase64((unsigned char*)buf, len, (char **)&ciphertext, &ciphertext_len);
+      free(buf);
+      buf = ciphertext;
+      len = ciphertext_len;
     } else if (strcasecmp(*encoding, "binary") == 0) {
       // Binary - do nothing
     } else {
       fprintf(stderr, "node-crypto : RsaKeypair.decrypt encoding "
-	      "can be binary or hex\n");
+	      "can be binary, base64 or hex\n");
     }
   }
 
