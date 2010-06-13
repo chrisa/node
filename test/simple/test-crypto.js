@@ -80,9 +80,9 @@ var ciphertext = keypair.encrypt(plaintext, 'utf8', 'hex');
 var plaintext_again = keypair.decrypt(ciphertext, 'hex', 'utf8');
 assert.equal(plaintext, plaintext_again);
 
-// roundtrip via hex encoding
-var ciphertext = keypair.encrypt(plaintext, 'utf8', 'base64');
-var plaintext_again = keypair.decrypt(ciphertext, 'base64', 'utf8');
+// roundtrip via base64 encoding
+var ciphertext = keypair.encrypt(plaintext, 'ascii', 'base64');
+var plaintext_again = keypair.decrypt(ciphertext, 'base64', 'ascii');
 assert.equal(plaintext, plaintext_again);
 
 // roundtrip via binary
@@ -102,3 +102,9 @@ var random_bytes_binary = crypto.randomBytes(64, 'binary');
 assert.ok(random_bytes_binary);
 var random_bytes_hex = crypto.randomBytes(64, 'hex');
 assert.ok(random_bytes_hex);
+
+// Test RSA-encrypting binary data (like a random key)
+var random_key = crypto.randomBytes(64, 'binary');
+var encrypted_key = keypair.encrypt(random_key, 'binary', 'binary');
+var random_key_again = keypair.decrypt(encrypted_key, 'binary', 'binary');
+assert.equal(random_key, random_key_again);
