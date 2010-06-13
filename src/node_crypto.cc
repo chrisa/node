@@ -2601,22 +2601,32 @@ Handle<Value> RsaKeypair::SetPrivateKey(const Arguments& args) {
 
   RsaKeypair *kp = ObjectWrap::Unwrap<RsaKeypair>(args.Holder());
 
-  if (args.Length() != 2 ||
-      !args[0]->IsString() || !args[1]->IsString()) {
+  if (args.Length() == 2 &&
+      (!args[0]->IsString() || !args[1]->IsString())) {
     return ThrowException(Exception::TypeError(
           String::New("Bad parameter")));
   }
-  String::Utf8Value privKey(args[0]->ToString());
-  String::Utf8Value passphrase(args[1]->ToString());
+  if (args.Length() == 1 &&
+      (!args[0]->IsString())) {
+    return ThrowException(Exception::TypeError(
+          String::New("Bad parameter")));
+  }
 
   BIO *bp = NULL;
-  RSA *key;
+  String::Utf8Value privKey(args[0]->ToString());
 
   bp = BIO_new(BIO_s_mem());
   if (!BIO_write(bp, *privKey, strlen(*privKey)))
     return False();
 
-  key = PEM_read_bio_RSAPrivateKey(bp, NULL, 0, *passphrase);
+  RSA *key;
+  if (args.Length() == 2) {
+    String::Utf8Value passphrase(args[1]->ToString());
+    key = PEM_read_bio_RSAPrivateKey(bp, NULL, 0, *passphrase);
+  }
+  else {
+    key = PEM_read_bio_RSAPrivateKey(bp, NULL, 0, NULL);
+  }
   if (key == NULL) {
     return False();
   }
